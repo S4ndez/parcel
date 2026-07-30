@@ -11,18 +11,23 @@ const flatSchema = z.object({
 export async function GET(req: Request) {
   try {
     const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(req.url);
-    const apartmentId = searchParams.get('apartmentId') || session.apartmentId;
+    const queryApartmentId = searchParams.get('apartmentId');
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
     const search = searchParams.get('search') || '';
     const all = searchParams.get('all') === 'true';
 
+    // Public guest access: allowed when apartmentId is explicitly provided in the URL
+    // Manager/admin access: falls back to their session's apartmentId
+    const apartmentId = queryApartmentId || session?.apartmentId;
+
+    // If no apartmentId could be resolved AND the user is not authenticated, reject.
     if (!apartmentId) {
+      if (!session) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      }
       return NextResponse.json({ success: false, error: 'Apartment ID is required' }, { status: 400 });
     }
 
